@@ -38,7 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         selectionManager = SelectionManager(
             accessibility: accessibility,
             clipboard: extractor,
-            qualifier: TextQualifier(maxCharacters: settings.maxCharacters))
+            qualifier: TextQualifier(maxCharacters: settings.maxCharacters),
+            logger: logger)
 
         popup = PopupController(onMarkUnderstood: { [weak self] item in
             self?.markUnderstood(item)

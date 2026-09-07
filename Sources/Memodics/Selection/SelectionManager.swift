@@ -16,13 +16,16 @@ final class SelectionManager {
     private let accessibility: AccessibilityManager
     private let clipboard: ClipboardExtractor
     private let qualifier: TextQualifier
+    private let logger: Logging
 
     init(accessibility: AccessibilityManager,
          clipboard: ClipboardExtractor,
-         qualifier: TextQualifier) {
+         qualifier: TextQualifier,
+         logger: Logging) {
         self.accessibility = accessibility
         self.clipboard = clipboard
         self.qualifier = qualifier
+        self.logger = logger
     }
 
     /// Capture the current selection, or nil if none is usable.
@@ -45,7 +48,7 @@ final class SelectionManager {
             }
         } catch {
             // Extraction failed; clipboard was still restored by the extractor.
-            NSLog("Memodics: clipboard extraction failed: \(error)")
+            logger.error("Clipboard extraction failed: \(error)")
         }
 
         return nil
