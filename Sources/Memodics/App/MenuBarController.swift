@@ -32,6 +32,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
+    /// Swap the status-item icon to reflect an in-flight lookup. `book.closed`
+    /// is the idle icon (matching init); `book` (open) signals "translating".
+    func setBusy(_ busy: Bool) {
+        guard let button = statusItem.button else { return }
+        let symbol = busy ? "book" : "book.closed"
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Memodics")
+        button.image?.isTemplate = true
+    }
+
     // Rebuild the menu each time it opens so state (checkmarks, permission
     // status) is always current.
     func menuNeedsUpdate(_ menu: NSMenu) {
