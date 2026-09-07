@@ -66,8 +66,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Load the API key from the Keychain off the main thread, then rebuild
         // the provider so a Keychain prompt can never freeze launch.
         settings.loadSecrets { [weak self] in
-            self?.environment?.reloadProvider()
-            self?.logger.info("Secrets loaded; provider reloaded")
+            guard let self else { return }
+            if let environment = self.environment {
+                environment.reloadProvider()
+                self.logger.info("Secrets loaded; provider reloaded")
+            } else {
+                self.logger.info("Secrets loaded (no database; provider not reloaded)")
+            }
         }
 
         // Prompt (non-blocking) so the app appears in the Accessibility list.

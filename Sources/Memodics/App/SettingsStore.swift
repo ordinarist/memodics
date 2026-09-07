@@ -77,9 +77,14 @@ final class SettingsStore: ObservableObject {
             let stored = KeychainStore.get(account: Self.apiKeyAccount) ?? ""
 
             DispatchQueue.main.async {
-                self.isLoadingApiKey = true
-                self.apiKey = stored
-                self.isLoadingApiKey = false
+                // Don't clobber a key the user typed in Settings while the read
+                // was in flight (the read can block on a Keychain prompt): a
+                // user-entered value already persisted itself and must win.
+                if self.apiKey.isEmpty {
+                    self.isLoadingApiKey = true
+                    self.apiKey = stored
+                    self.isLoadingApiKey = false
+                }
                 completion()
             }
         }
