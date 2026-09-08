@@ -8,35 +8,53 @@ protocol Notifying {
     func notify(title: String, body: String)
 }
 
-/// Posts native macOS banners via UNUserNotificationCenter. When the process is
-/// not a bundled `.app` (e.g. `swift run`), the notification center is unusable,
-/// so it falls back to NSLog. Never throws to the caller (SPEC §24).
+/// Posts native macOS banners via UNUserNotificationCenter when they're actually
+/// available, and otherwise routes to a visible fallback.
+///
+/// Native User Notifications require a properly-signed app: ad-hoc-signed local
+/// builds (what `build-app.sh` produces) are forbidden by macOS from posting
+/// them, and `requestAuthorization` fails silently. Unbundled runs (`swift run`)
+/// can't use the notification center at all. In both cases we fall back so the
+/// user always sees feedback (SPEC §24). Never throws to the caller.
+@MainActor
 final class UserNotifier: Notifying {
 
     /// UNUserNotificationCenter.current() traps unless the process is a proper
     /// app bundle. Detect that up front and route around it when unbundled.
     private let isBundledApp = Bundle.main.bundleURL.pathExtension == "app"
 
-    init() {
+    /// Set true only if the system actually grants notification authorization.
+    /// Stays false for ad-hoc builds, so the fallback is used.
+    private var authorized = false
+
+    /// Visible surface used whenever native banners aren't available.
+    private let fallback: Notifying
+
+    init(fallback: Notifying) {
+        self.fallback = fallback
         guard isBundledApp else { return }
         UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
+            .requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
+                DispatchQueue.main.async { self?.authorized = granted }
+            }
     }
 
     func notify(title: String, body: String) {
-        guard isBundledApp else {
-            NSLog("Memodics notify: \(title) — \(body)")
+        guard isBundledApp, authorized else {
+            fallback.notify(title: title, body: body)
             return
         }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         let request = UNNotificationRequest(
-            identifier: "\(title)-\(body.hashValue)",
+            identifier: UUID().uuidString,
             content: content,
             trigger: nil)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error { NSLog("Memodics notify failed: \(error)") }
+        UNUserNotificationCenter.current().add(request) { [weak self] error in
+            guard error != nil else { return }
+            // Delivery failed after all — still show something visible.
+            DispatchQueue.main.async { self?.fallback.notify(title: title, body: body) }
         }
     }
 }
