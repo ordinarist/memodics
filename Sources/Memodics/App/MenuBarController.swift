@@ -30,17 +30,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
-        statusItem.isVisible = true
-
-        // Logging in as a login item can start the app before the menu bar is
-        // ready, so a status item created now sometimes never appears. Re-assert
-        // visibility on the next run-loop passes as a cheap safety net.
-        for delay in [0.5, 2.0] {
-            Task { @MainActor [statusItem] in
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                statusItem.isVisible = true
-            }
-        }
     }
 
     /// Pop the menu without needing the (possibly missing) status-item icon —
