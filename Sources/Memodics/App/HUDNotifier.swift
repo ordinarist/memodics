@@ -11,10 +11,10 @@ import AppKit
 final class HUDNotifier: Notifying {
 
     private var panel: NSPanel?
-    private var dismissWorkItem: DispatchWorkItem?
+    private var dismissTask: Task<Void, Never>?
 
     func notify(title: String, body: String) {
-        dismissWorkItem?.cancel()
+        dismissTask?.cancel()
         panel?.orderOut(nil)
         panel = nil
 
@@ -88,17 +88,18 @@ final class HUDNotifier: Notifying {
     }
 
     private func scheduleDismiss(_ panel: NSPanel) {
-        let work = DispatchWorkItem { [weak self, weak panel] in
-            guard let panel else { return }
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.25
-                panel.animator().alphaValue = 0
-            }, completionHandler: {
-                panel.orderOut(nil)
-                if self?.panel === panel { self?.panel = nil }
-            })
+        // A main-actor Task keeps every access to `panel`/`self.panel` on the
+        // main actor, avoiding the Sendable-closure data races that a
+        // DispatchWorkItem + animation completion handler would introduce.
+        dismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            if Task.isCancelled { return }
+            // Implicit animation proxy (avoids the async runAnimationGroup
+            // overload the compiler would pick inside this async context).
+            panel.animator().alphaValue = 0
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            panel.orderOut(nil)
+            if self?.panel === panel { self?.panel = nil }
         }
-        dismissWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0, execute: work)
     }
 }

@@ -3,7 +3,9 @@ import AppKit
 import UserNotifications
 
 /// Presents short user-facing status/error messages. Mockable so AppDelegate
-/// routing can be tested without the real notification center.
+/// routing can be tested without the real notification center. Main-actor
+/// isolated: presenting feedback always touches AppKit on the main thread.
+@MainActor
 protocol Notifying {
     func notify(title: String, body: String)
 }
@@ -35,7 +37,7 @@ final class UserNotifier: Notifying {
         guard isBundledApp else { return }
         UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
-                DispatchQueue.main.async { self?.authorized = granted }
+                Task { @MainActor in self?.authorized = granted }
             }
     }
 
@@ -54,7 +56,7 @@ final class UserNotifier: Notifying {
         UNUserNotificationCenter.current().add(request) { [weak self] error in
             guard error != nil else { return }
             // Delivery failed after all — still show something visible.
-            DispatchQueue.main.async { self?.fallback.notify(title: title, body: body) }
+            Task { @MainActor in self?.fallback.notify(title: title, body: body) }
         }
     }
 }
