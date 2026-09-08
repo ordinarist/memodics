@@ -12,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let settings = SettingsStore()
     private let accessibility = AccessibilityManager()
+    private let logger: Logging = FileLogger(
+        fileURL: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/Memodics/memodics.log"))
+    private let notifier: Notifying = UserNotifier()
 
     private var environment: AppEnvironment?
     private var selectionManager: SelectionManager!
@@ -26,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             environment = try AppEnvironment(settings: settings)
         } catch {
+            logger.error("Database open failed: \(error)")
             presentError("Could not open the local database", detail: "\(error)")
         }
 
@@ -33,7 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         selectionManager = SelectionManager(
             accessibility: accessibility,
             clipboard: extractor,
-            qualifier: TextQualifier(maxCharacters: settings.maxCharacters))
+            qualifier: TextQualifier(maxCharacters: settings.maxCharacters),
+            logger: logger)
 
         popup = PopupController(onMarkUnderstood: { [weak self] item in
             self?.markUnderstood(item)
@@ -57,6 +63,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         applyLaunchAtLogin(settings.launchAtLogin)
 
+        // Load the API key from the Keychain off the main thread, then rebuild
+        // the provider so a Keychain prompt can never freeze launch.
+        settings.loadSecrets { [weak self] in
+            guard let self else { return }
+            if let environment = self.environment {
+                environment.reloadProvider()
+                self.logger.info("Secrets loaded; provider reloaded")
+            } else {
+                self.logger.info("Secrets loaded (no database; provider not reloaded)")
+            }
+        }
+
         // Prompt (non-blocking) so the app appears in the Accessibility list.
         if !accessibility.isTrusted() {
             accessibility.promptForPermission()
@@ -66,36 +84,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Lookup flow
 
     private func triggerLookup() {
+        logger.info("Lookup triggered")
+
         guard settings.detectionEnabled else {
-            NSSound.beep()
+            notifier.notify(title: "Detection is off",
+                            body: "Enable Detection from the Memodics menu to translate.")
+            logger.warning("Lookup skipped: detection disabled")
             return
         }
         guard let environment else {
-            presentError("Not ready", detail: "The database is unavailable.")
+            notifier.notify(title: "Not ready",
+                            body: "The local database is unavailable.")
+            logger.error("Lookup skipped: database unavailable")
             return
         }
         guard settings.isProviderConfigured else {
-            presentError("Translation provider not configured",
-                         detail: "Add your API key in Settings to enable translation.")
+            notifier.notify(title: "Translation provider not configured",
+                            body: "Add your API key in Settings to enable translation.")
+            logger.warning("Lookup skipped: provider not configured")
             settingsWindow.show()
             return
         }
 
-        // Capture the selection on the main actor (AppKit + clipboard are
-        // main-thread bound; the fallback poll is brief). The network call then
-        // runs asynchronously without blocking.
         guard let selection = selectionManager.captureCurrentSelection() else {
-            NSSound.beep()
+            notifier.notify(title: "No text selected",
+                            body: "Select English text in another app, then try again.")
+            logger.warning("Lookup skipped: no processable selection captured")
             return
         }
+
+        menuBar.setBusy(true)
+        logger.info("Lookup start (source: \(selection.sourceApplication ?? "unknown"))")
         Task { @MainActor in
+            defer { self.menuBar.setBusy(false) }
             do {
                 let outcome = try await environment.pipeline.lookup(
                     rawText: selection.text,
                     sourceApplication: selection.sourceApplication)
                 self.popup.show(outcome: outcome)
+                self.logger.info("Lookup success")
             } catch {
-                self.presentError("Translation failed", detail: "\(error)")
+                self.notifier.notify(title: "Translation failed", body: "\(error)")
+                self.logger.error("Lookup failed: \(error)")
             }
         }
     }
@@ -127,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } catch {
             // Non-fatal: launch-at-login is best-effort (SPEC §4 "if practical").
-            NSLog("Memodics: launch-at-login update failed: \(error)")
+            logger.error("Launch-at-login update failed: \(error)")
         }
     }
 
