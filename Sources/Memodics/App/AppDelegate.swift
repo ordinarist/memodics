@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger: Logging = FileLogger(
         fileURL: FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/Memodics/memodics.log"))
-    private let notifier: Notifying = UserNotifier()
+    private let notifier: Notifying = UserNotifier(fallback: HUDNotifier())
 
     private var environment: AppEnvironment?
     private var selectionManager: SelectionManager!
