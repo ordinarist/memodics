@@ -81,6 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Re-opening the app (double-click in Finder / `open` while it's already
+    /// running) pops the menu, so Dashboard/Settings/Quit stay reachable even if
+    /// the menu-bar icon didn't render (e.g. an early login-item launch).
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        menuBar?.showMenu()
+        return true
+    }
+
     // MARK: - Lookup flow
 
     private func triggerLookup() {
