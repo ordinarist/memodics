@@ -95,8 +95,8 @@ public final class LLMTranslationProvider: TranslationProvider, @unchecked Senda
         You are a reading assistant for an English learner whose target language is \(targetLanguage).
         Translate the user's English text into \(targetLanguage), then identify vocabulary worth learning.
         Prefer genuine dictionary entries. DO NOT include proper nouns, personal/place/brand names, \
-        pure numbers, code identifiers, file paths, or URLs, and skip trivially common words the learner \
-        already knows.
+        pure numbers, code identifiers, file paths, or URLs, and skip elementary function words \
+        (articles, basic pronouns, simple prepositions).
         DO include conjunctions and discourse connectives worth learning (e.g. "nevertheless", "whereas", \
         "albeit") using type "conjunction".
         Treat phrasal verbs, idioms, and meaningful multi-word expressions as single units — do not split them.
