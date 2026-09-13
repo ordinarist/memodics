@@ -12,7 +12,7 @@ criterion to its verification status. `README.md` has user/build docs.
 
 ```bash
 swift build                              # build library + executable
-swift test                               # full suite (currently 59 tests)
+swift test                               # full suite (currently 96 tests)
 swift test --filter LookupPipelineTests  # one test class
 swift run Memodics                        # run the menu-bar app (dev)
 ./scripts/build-app.sh release           # assemble signed build/Memodics.app
