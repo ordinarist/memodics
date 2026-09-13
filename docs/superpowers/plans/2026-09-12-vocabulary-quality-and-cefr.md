@@ -1028,7 +1028,52 @@ git commit -m "feat(app): dashboard English-level card with CEFR distribution ch
 
 ---
 
-### Task 13: Final full-suite check
+### Task 13: Bump version to 0.2.0
+
+**Files:**
+- Modify: `Sources/MemodicsCore/MemodicsCore.swift`
+- Modify: `Resources/Info.plist`
+
+- [ ] **Step 1: Bump the library version**
+
+In `Sources/MemodicsCore/MemodicsCore.swift`, change:
+
+```swift
+    public static let version = "0.1.0"
+```
+
+to:
+
+```swift
+    public static let version = "0.2.0"
+```
+
+- [ ] **Step 2: Bump the bundle version**
+
+In `Resources/Info.plist`, change `CFBundleShortVersionString` from `0.1.0` to `0.2.0`, and `CFBundleVersion` from `1` to `2`:
+
+```xml
+    <key>CFBundleShortVersionString</key>
+    <string>0.2.0</string>
+    <key>CFBundleVersion</key>
+    <string>2</string>
+```
+
+- [ ] **Step 3: Build**
+
+Run: `swift build`
+Expected: builds clean.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add Sources/MemodicsCore/MemodicsCore.swift Resources/Info.plist
+git commit -m "chore: bump version to 0.2.0"
+```
+
+---
+
+### Task 14: Final full-suite check
 
 - [ ] **Step 1: Run everything**
 
