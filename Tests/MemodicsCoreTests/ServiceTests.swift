@@ -111,6 +111,55 @@ final class VocabularyServiceTests: XCTestCase {
         _ = try vocab.upsert(lemma: "beta", type: .word, meaning: "m", translation: "t")
         XCTAssertEqual(try vocab.all().count, 2)
     }
+
+    func testUpsertStoresCEFROnInsert() throws {
+        let db = try Database.inMemory()
+        let vocab = VocabularyService(database: db)
+        let item = try vocab.upsert(lemma: "ubiquitous", type: .word, meaning: "phổ biến",
+                                    translation: "phổ biến", cefr: .c1)
+        XCTAssertEqual(item.cefr, .c1)
+        XCTAssertEqual(try vocab.get(id: item.id)?.cefr, .c1)
+    }
+
+    func testUpsertBackfillsCEFRWhenPreviouslyNil() throws {
+        let db = try Database.inMemory()
+        let vocab = VocabularyService(database: db)
+        let first = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: nil)
+        XCTAssertNil(first.cefr)
+        let second = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: .b1)
+        XCTAssertEqual(second.cefr, .b1)
+    }
+
+    func testUpsertDoesNotClobberExistingCEFRWithNil() throws {
+        let db = try Database.inMemory()
+        let vocab = VocabularyService(database: db)
+        _ = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: .b1)
+        let again = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: nil)
+        XCTAssertEqual(again.cefr, .b1)
+    }
+
+    func testUpsertDoesNotClobberExistingCEFRWithDifferentLevel() throws {
+        let db = try Database.inMemory()
+        let vocab = VocabularyService(database: db)
+        _ = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: .b1)
+        // The first recognized level is sticky — a later differing level is ignored.
+        let again = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: .c1)
+        XCTAssertEqual(again.cefr, .b1)
+        XCTAssertEqual(try vocab.get(id: again.id)?.cefr, .b1)
+    }
+
+    func testCountsByCEFRGroupsUnderstoodAndLearning() throws {
+        let db = try Database.inMemory()
+        let vocab = VocabularyService(database: db)
+        let a = try vocab.upsert(lemma: "cat", type: .word, meaning: "m", translation: "t", cefr: .a1)
+        _ = try vocab.upsert(lemma: "dog", type: .word, meaning: "m", translation: "t", cefr: .a1)
+        _ = try vocab.upsert(lemma: "no-level", type: .word, meaning: "m", translation: "t", cefr: nil)
+        try vocab.markUnderstood(id: a.id)
+        let counts = try vocab.vocabularyCountsByCEFR()
+        XCTAssertEqual(counts[.a1]?.understood, 1)
+        XCTAssertEqual(counts[.a1]?.learning, 1)
+        XCTAssertNil(counts[.b1])
+    }
 }
 
 final class LookupHistoryServiceTests: XCTestCase {

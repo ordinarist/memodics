@@ -78,9 +78,10 @@ public final class LookupPipeline: @unchecked Sendable {
 
         // 7–8. Upsert vocab, bump counts (always), record occurrences.
         var displayVocab: [LookupVocabulary] = []
-        for v in analyzed {
+        for v in analyzed.rankedForDisplay() {
             let item = try vocabulary.upsert(lemma: v.lemma, type: v.type,
-                                             meaning: v.meaning, translation: v.meaning)
+                                             meaning: v.meaning, translation: v.meaning,
+                                             cefr: v.cefr)
             try vocabulary.incrementLookupCount(id: item.id)
             try history.addOccurrence(vocabularyId: item.id, lookupId: lookupRecord.id,
                                       surfaceForm: v.surfaceForm, context: rawText)

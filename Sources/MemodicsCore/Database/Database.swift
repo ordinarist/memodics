@@ -54,7 +54,7 @@ public struct Row {
 public final class Database {
 
     /// Bump this and add a migration block whenever the schema changes.
-    public static let currentSchemaVersion: Int32 = 1
+    public static let currentSchemaVersion: Int32 = 2
 
     private var db: OpaquePointer?
     private let queue = DispatchQueue(label: "com.memodics.database")
@@ -108,6 +108,8 @@ public final class Database {
         switch version {
         case 1:
             try unsafeExecute(Schema.v1)
+        case 2:
+            try unsafeExecute(Schema.v2)
         default:
             break
         }

@@ -39,4 +39,25 @@ final class DatabaseTests: XCTestCase {
         let sum = try db.queryScalarInt("SELECT SUM(x) FROM t")
         XCTAssertEqual(sum, 42)
     }
+
+    func testSchemaV2AddsCefrColumn() throws {
+        let db = try Database.inMemory()
+        XCTAssertEqual(db.schemaVersion, 2)
+        try db.run("""
+            INSERT INTO vocabulary (lemma, type, meaning, translation, lookup_count, status, first_seen_at, last_seen_at, cefr)
+            VALUES ('x', 'word', 'm', 't', 0, 'learning', 0, 0, 'b1')
+            """)
+        let level = try db.query("SELECT cefr FROM vocabulary WHERE lemma = 'x'") { $0.stringOptional(0) }.first
+        XCTAssertEqual(level, "b1")
+    }
+
+    func testExistingRowsGetNullCefr() throws {
+        let db = try Database.inMemory()
+        try db.run("""
+            INSERT INTO vocabulary (lemma, type, meaning, translation, lookup_count, status, first_seen_at, last_seen_at)
+            VALUES ('y', 'word', 'm', 't', 0, 'learning', 0, 0)
+            """)
+        let level = try db.query("SELECT cefr FROM vocabulary WHERE lemma = 'y'") { $0.stringOptional(0) }.first ?? nil
+        XCTAssertNil(level)
+    }
 }

@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger: Logging = FileLogger(
         fileURL: FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/Memodics/memodics.log"))
-    private let notifier: Notifying = UserNotifier()
+    private let notifier: Notifying = UserNotifier(fallback: HUDNotifier())
 
     private var environment: AppEnvironment?
     private var selectionManager: SelectionManager!
@@ -79,6 +79,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !accessibility.isTrusted() {
             accessibility.promptForPermission()
         }
+    }
+
+    /// Re-opening the app (double-click in Finder / `open` while it's already
+    /// running) pops the menu, so Dashboard/Settings/Quit stay reachable even if
+    /// the menu-bar icon didn't render (e.g. an early login-item launch).
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        menuBar?.showMenu()
+        return true
     }
 
     // MARK: - Lookup flow

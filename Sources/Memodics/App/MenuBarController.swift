@@ -30,6 +30,33 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+
+        // A status item created before the app is active — e.g. a background or
+        // login-item launch — can fail to be slotted into the menu bar: it ends
+        // up zero-height at {0,0} and never appears. Toggling `isVisible` once
+        // the run loop is going forces macOS to place it. Re-asserted at two
+        // delays for robustness against launch timing. (Verified: the button
+        // window frame goes from {{0,0},{30,0}} to the menu-bar slot.)
+        for delayMs in [300, 1500] {
+            Task { @MainActor [statusItem] in
+                try? await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
+                statusItem.isVisible = false
+                statusItem.isVisible = true
+            }
+        }
+    }
+
+    /// Pop the menu without needing the (possibly missing) status-item icon —
+    /// used when the app is re-opened, so Dashboard/Settings stay reachable even
+    /// if macOS didn't render the menu-bar icon. SPEC §4.
+    func showMenu() {
+        guard let menu = statusItem.menu else { return }
+        if let button = statusItem.button, button.window != nil, statusItem.isVisible {
+            button.performClick(nil)
+        } else if let screen = NSScreen.main {
+            let point = NSPoint(x: screen.frame.maxX - 260, y: screen.frame.maxY - 8)
+            menu.popUp(positioning: nil, at: point, in: nil)
+        }
     }
 
     /// Swap the status-item icon to reflect an in-flight lookup. `book.closed`

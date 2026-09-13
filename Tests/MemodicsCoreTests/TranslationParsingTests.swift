@@ -65,6 +65,49 @@ final class TranslationParsingTests: XCTestCase {
         let result = try TranslationResponseParser.parse(fromText: text)
         XCTAssertEqual(result.translation, "hi")
     }
+
+    func testAnalyzedVocabularyDecodesWithoutCEFRAsNil() throws {
+        let json = #"[{"surfaceForm":"cats","lemma":"cat","meaning":"mèo","type":"word","partOfSpeech":"noun"}]"#
+        let decoded = try JSONDecoder().decode([AnalyzedVocabulary].self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.first?.cefr, nil)
+    }
+    func testAnalyzedVocabularyRoundTripsCEFR() throws {
+        let v = AnalyzedVocabulary(surfaceForm: "cats", lemma: "cat", meaning: "mèo",
+                                   type: .word, partOfSpeech: "noun", cefr: .a1)
+        let data = try JSONEncoder().encode([v])
+        let back = try JSONDecoder().decode([AnalyzedVocabulary].self, from: data)
+        XCTAssertEqual(back.first?.cefr, .a1)
+    }
+
+    func testParsesCEFRAndConjunctionType() throws {
+        let json = """
+        {"translation":"x","vocabulary":[
+          {"surfaceForm":"nevertheless","lemma":"nevertheless","meaning":"tuy nhiên","type":"conjunction","cefr":"B2"}
+        ]}
+        """
+        let result = try TranslationResponseParser.parse(Data(json.utf8))
+        XCTAssertEqual(result.vocabulary.first?.type, .conjunction)
+        XCTAssertEqual(result.vocabulary.first?.cefr, .b2)
+    }
+
+    func testParsesMissingCEFRAsNil() throws {
+        let json = #"{"translation":"x","vocabulary":[{"surfaceForm":"cat","lemma":"cat","meaning":"mèo","type":"word"}]}"#
+        let result = try TranslationResponseParser.parse(Data(json.utf8))
+        XCTAssertNil(result.vocabulary.first?.cefr)
+    }
+
+    func testSystemPromptRequestsQualityRulesAndCEFR() {
+        let prompt = LLMTranslationProvider.makeSystemPrompt(targetLanguage: "Vietnamese", knownLemmas: [])
+        XCTAssertTrue(prompt.contains("conjunction"), "prompt should allow conjunction type")
+        XCTAssertTrue(prompt.contains("cefr"), "prompt should request a cefr field")
+        XCTAssertTrue(prompt.lowercased().contains("proper noun"), "prompt should exclude proper nouns")
+        XCTAssertTrue(prompt.contains("A1"), "prompt should list CEFR bands")
+    }
+
+    func testSystemPromptListsKnownLemmas() {
+        let prompt = LLMTranslationProvider.makeSystemPrompt(targetLanguage: "Vietnamese", knownLemmas: ["cat", "dog"])
+        XCTAssertTrue(prompt.contains("cat, dog"))
+    }
 }
 
 final class MockTranslationProviderTests: XCTestCase {

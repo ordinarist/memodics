@@ -12,14 +12,27 @@ public struct AnalyzedVocabulary: Equatable, Sendable, Codable {
     public var type: VocabularyType
     /// Optional part-of-speech tag from the provider (SPEC §9 example).
     public var partOfSpeech: String?
+    /// CEFR level of this item in context (A1–C2), if the provider supplied it. SPEC §16.
+    public var cefr: CEFRLevel?
 
     public init(surfaceForm: String, lemma: String, meaning: String,
-                type: VocabularyType = .word, partOfSpeech: String? = nil) {
+                type: VocabularyType = .word, partOfSpeech: String? = nil,
+                cefr: CEFRLevel? = nil) {
         self.surfaceForm = surfaceForm
         self.lemma = lemma
         self.meaning = meaning
         self.type = type
         self.partOfSpeech = partOfSpeech
+        self.cefr = cefr
+    }
+}
+
+public extension Array where Element == AnalyzedVocabulary {
+    /// Stable sort by `type.displayRank`; provider order breaks ties.
+    func rankedForDisplay() -> [AnalyzedVocabulary] {
+        enumerated()
+            .sorted { ($0.element.type.displayRank, $0.offset) < ($1.element.type.displayRank, $1.offset) }
+            .map(\.element)
     }
 }
 

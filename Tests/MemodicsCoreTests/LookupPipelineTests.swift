@@ -47,6 +47,21 @@ final class LookupPipelineTests: XCTestCase {
         XCTAssertEqual(second.translation, sample.translation)
     }
 
+    func testRepeatLookupFromCacheRetainsCEFR() async throws {
+        // CEFR must survive the cache JSON round-trip so a cache hit still shows
+        // the level — and without a second API call (SPEC §21).
+        let result = TranslationResult(translation: "t", vocabulary: [
+            AnalyzedVocabulary(surfaceForm: "cats", lemma: "cat", meaning: "m", type: .word, cefr: .a1),
+        ])
+        let (pipeline, provider, _, _) = try makeHarness(result: result)
+        _ = try await pipeline.lookup(rawText: "Cats.", sourceApplication: nil)
+        let second = try await pipeline.lookup(rawText: "Cats.", sourceApplication: nil)
+
+        XCTAssertTrue(second.servedFromCache)
+        XCTAssertEqual(provider.callCount, 1)
+        XCTAssertEqual(second.vocabulary.first?.item.cefr, .a1)
+    }
+
     func testLookupCountIncrementsEvenOnCacheHit() async throws {
         let (pipeline, _, vocab, _) = try makeHarness(result: sample)
         let text = "The company withdrew its offer after negotiations failed."
@@ -88,5 +103,19 @@ final class LookupPipelineTests: XCTestCase {
         XCTAssertEqual(occ.count, 1)
         XCTAssertEqual(occ.first?.surfaceForm, "withdrew")
         XCTAssertEqual(occ.first?.context, text)
+    }
+
+    func testOutcomeRanksHeadwordsFirstAndStoresCEFR() async throws {
+        let result = TranslationResult(translation: "t", vocabulary: [
+            AnalyzedVocabulary(surfaceForm: "however", lemma: "however", meaning: "m", type: .conjunction, cefr: .b1),
+            AnalyzedVocabulary(surfaceForm: "cats", lemma: "cat", meaning: "m", type: .word, cefr: .a1),
+        ])
+        let (pipeline, _, _, _) = try makeHarness(result: result)
+        let outcome = try await pipeline.lookup(rawText: "However, cats.", sourceApplication: nil)
+
+        // Ranked: word ("cat") before conjunction ("however").
+        XCTAssertEqual(outcome.vocabulary.map(\.item.lemma), ["cat", "however"])
+        // CEFR persisted on the canonical item.
+        XCTAssertEqual(outcome.vocabulary.first?.item.cefr, .a1)
     }
 }

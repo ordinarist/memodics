@@ -24,18 +24,28 @@ public final class VocabularyService {
     /// Find-or-create the canonical item for `(lemma, type)`. An existing item's
     /// `lookupCount` and `status` are preserved (SPEC §11 — understood is sticky).
     @discardableResult
-    public func upsert(lemma: String, type: VocabularyType, meaning: String, translation: String) throws -> VocabularyItem {
+    public func upsert(lemma: String, type: VocabularyType, meaning: String,
+                       translation: String, cefr: CEFRLevel? = nil) throws -> VocabularyItem {
         let canonical = Self.canonicalLemma(lemma)
         if let existing = try find(lemma: canonical, type: type) {
+            // Backfill CEFR only when no recognized level is stored yet; an
+            // existing level (or a nil incoming level) is left untouched.
+            if existing.cefr == nil, let cefr {
+                try db.run("UPDATE vocabulary SET cefr = ? WHERE id = ?",
+                           [.text(cefr.rawValue), .int(existing.id)])
+                var updated = existing
+                updated.cefr = cefr
+                return updated
+            }
             return existing
         }
         let ts = now().timeIntervalSince1970
         try db.run("""
-            INSERT INTO vocabulary (lemma, type, meaning, translation, lookup_count, status, first_seen_at, last_seen_at)
-            VALUES (?, ?, ?, ?, 0, 'learning', ?, ?)
+            INSERT INTO vocabulary (lemma, type, meaning, translation, lookup_count, status, first_seen_at, last_seen_at, cefr)
+            VALUES (?, ?, ?, ?, 0, 'learning', ?, ?, ?)
             """,
             [.text(canonical), .text(type.rawValue), .text(meaning), .text(translation),
-             .double(ts), .double(ts)])
+             .double(ts), .double(ts), .text(cefr?.rawValue)])
         return try find(lemma: canonical, type: type)!
     }
 
@@ -71,6 +81,28 @@ public final class VocabularyService {
     public func all() throws -> [VocabularyItem] {
         try db.query("SELECT \(Self.columns) FROM vocabulary ORDER BY lookup_count DESC, last_seen_at DESC",
                      map: Self.mapRow)
+    }
+
+    /// Understood + learning counts per CEFR band, ignoring rows without a
+    /// level. Understood feeds the level estimate; both feed the dashboard chart.
+    public func vocabularyCountsByCEFR() throws -> [CEFRLevel: (understood: Int, learning: Int)] {
+        let rows = try db.query("""
+            SELECT cefr, status, COUNT(*) FROM vocabulary
+            WHERE cefr IS NOT NULL
+            GROUP BY cefr, status
+            """) { (level: $0.stringOptional(0), status: $0.string(1), count: $0.intValue(2)) }
+
+        var result: [CEFRLevel: (understood: Int, learning: Int)] = [:]
+        for row in rows {
+            guard let raw = row.level, let level = CEFRLevel(loose: raw) else { continue }
+            var entry = result[level] ?? (understood: 0, learning: 0)
+            // VocabularyStatus has exactly two cases; anything not "understood"
+            // (i.e. "learning") counts as still-learning.
+            if row.status == VocabularyStatus.understood.rawValue { entry.understood += row.count }
+            else { entry.learning += row.count }
+            result[level] = entry
+        }
+        return result
     }
 
     /// Filtered, paginated search for the dashboard (SPEC §19). Matches `query`
@@ -119,7 +151,7 @@ public final class VocabularyService {
 
     // MARK: - Row mapping
 
-    private static let columns = "id, lemma, type, meaning, translation, lookup_count, status, first_seen_at, last_seen_at"
+    private static let columns = "id, lemma, type, meaning, translation, lookup_count, status, first_seen_at, last_seen_at, cefr"
 
     private static func mapRow(_ r: Row) -> VocabularyItem {
         VocabularyItem(
@@ -131,6 +163,7 @@ public final class VocabularyService {
             lookupCount: r.intValue(5),
             status: VocabularyStatus(rawValue: r.string(6)) ?? .learning,
             firstSeenAt: r.date(7),
-            lastSeenAt: r.date(8))
+            lastSeenAt: r.date(8),
+            cefr: r.stringOptional(9).flatMap(CEFRLevel.init(loose:)))
     }
 }

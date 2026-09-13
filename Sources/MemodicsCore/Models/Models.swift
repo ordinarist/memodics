@@ -6,6 +6,21 @@ public enum VocabularyStatus: String, Codable, Sendable {
     case understood
 }
 
+/// Common European Framework of Reference level of a vocabulary item. SPEC §16.
+public enum CEFRLevel: String, Codable, Sendable, CaseIterable, Comparable {
+    case a1, a2, b1, b2, c1, c2
+
+    /// Ordered by CaseIterable ordinal: a1 < a2 < … < c2.
+    public static func < (lhs: CEFRLevel, rhs: CEFRLevel) -> Bool {
+        allCases.firstIndex(of: lhs)! < allCases.firstIndex(of: rhs)!
+    }
+
+    /// Tolerant parse: lowercases/trims input; unknown → nil.
+    public init?(loose raw: String) {
+        self.init(rawValue: raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+    }
+}
+
 /// Category of a vocabulary unit. SPEC §16. Multi-word units (phrasal verbs,
 /// idioms, collocations) are first-class and must not be split into words.
 public enum VocabularyType: String, Codable, Sendable {
@@ -14,6 +29,19 @@ public enum VocabularyType: String, Codable, Sendable {
     case phrasalVerb = "phrasal_verb"
     case idiom
     case collocation
+    case conjunction   // conjunctions / discourse connectives (e.g. "nevertheless")
+}
+
+public extension VocabularyType {
+    /// Display ordering for the popup: single dictionary headwords first,
+    /// then multi-word units, then connectives. SPEC §9 ranking.
+    var displayRank: Int {
+        switch self {
+        case .word: return 0
+        case .phrase, .phrasalVerb, .idiom, .collocation: return 1
+        case .conjunction: return 2
+        }
+    }
 }
 
 /// A canonical, learnable vocabulary item. SPEC §16.
@@ -27,10 +55,11 @@ public struct VocabularyItem: Equatable, Sendable {
     public var status: VocabularyStatus
     public var firstSeenAt: Date
     public var lastSeenAt: Date
+    public var cefr: CEFRLevel?
 
     public init(id: Int64, lemma: String, type: VocabularyType, meaning: String,
                 translation: String, lookupCount: Int, status: VocabularyStatus,
-                firstSeenAt: Date, lastSeenAt: Date) {
+                firstSeenAt: Date, lastSeenAt: Date, cefr: CEFRLevel? = nil) {
         self.id = id
         self.lemma = lemma
         self.type = type
@@ -40,6 +69,7 @@ public struct VocabularyItem: Equatable, Sendable {
         self.status = status
         self.firstSeenAt = firstSeenAt
         self.lastSeenAt = lastSeenAt
+        self.cefr = cefr
     }
 }
 

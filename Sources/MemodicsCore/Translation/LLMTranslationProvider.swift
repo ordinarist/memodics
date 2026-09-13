@@ -76,7 +76,8 @@ public final class LLMTranslationProvider: TranslationProvider, @unchecked Senda
             "temperature": 0.2,
             "response_format": ["type": "json_object"],
             "messages": [
-                ["role": "system", "content": systemPrompt(knownLemmas: known)],
+                ["role": "system", "content": Self.makeSystemPrompt(
+                    targetLanguage: configuration.targetLanguage, knownLemmas: known)],
                 ["role": "user", "content": text],
             ],
         ]
@@ -84,17 +85,24 @@ public final class LLMTranslationProvider: TranslationProvider, @unchecked Senda
         return request
     }
 
-    private func systemPrompt(knownLemmas: [String]) -> String {
+    /// Builds the system prompt. `static` + `internal` so it is unit-testable
+    /// without a live endpoint.
+    static func makeSystemPrompt(targetLanguage: String, knownLemmas: [String]) -> String {
         let knownClause = knownLemmas.isEmpty
             ? ""
             : " Do NOT include these already-known lemmas in the vocabulary array: \(knownLemmas.joined(separator: ", "))."
         return """
-        You are a reading assistant for an English learner whose target language is \(configuration.targetLanguage).
-        Translate the user's English text into \(configuration.targetLanguage), then identify vocabulary worth learning.
+        You are a reading assistant for an English learner whose target language is \(targetLanguage).
+        Translate the user's English text into \(targetLanguage), then identify vocabulary worth learning.
+        Prefer genuine dictionary entries. DO NOT include proper nouns, personal/place/brand names, \
+        pure numbers, code identifiers, file paths, or URLs, and skip elementary function words \
+        (articles, basic pronouns, simple prepositions).
+        DO include conjunctions and discourse connectives worth learning (e.g. "nevertheless", "whereas", \
+        "albeit") using type "conjunction".
         Treat phrasal verbs, idioms, and meaningful multi-word expressions as single units — do not split them.
-        Use the surrounding context to choose the correct contextual meaning of each item.
+        Use the surrounding context to choose the correct contextual meaning and CEFR level of each item.
         Respond with a single JSON object ONLY, matching exactly:
-        {"translation": string, "vocabulary": [{"surfaceForm": string, "lemma": string, "meaning": string (in \(configuration.targetLanguage)), "type": one of "word"|"phrase"|"phrasal_verb"|"idiom"|"collocation", "partOfSpeech": string}]}
+        {"translation": string, "vocabulary": [{"surfaceForm": string, "lemma": string, "meaning": string (in \(targetLanguage)), "type": one of "word"|"phrase"|"phrasal_verb"|"idiom"|"collocation"|"conjunction", "cefr": one of "A1"|"A2"|"B1"|"B2"|"C1"|"C2", "partOfSpeech": string}]}
         The lemma must be the canonical dictionary form so inflected forms map together.\(knownClause)
         """
     }

@@ -111,6 +111,14 @@ struct PopupView: View {
                 HStack(spacing: 6) {
                     Text(entry.item.lemma).fontWeight(.medium)
                     Text("× \(entry.item.lookupCount)").font(.caption).foregroundStyle(.secondary)
+                    if let cefr = entry.item.cefr {
+                        Text(cefr.rawValue.uppercased())
+                            .font(.caption2).fontWeight(.semibold)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Color.accentColor.opacity(0.15))
+                            .clipShape(Capsule())
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if !entry.meaning.isEmpty {
                     Text(entry.meaning).font(.caption).foregroundStyle(.secondary)
