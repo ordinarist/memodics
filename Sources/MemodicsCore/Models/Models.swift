@@ -29,6 +29,19 @@ public enum VocabularyType: String, Codable, Sendable {
     case phrasalVerb = "phrasal_verb"
     case idiom
     case collocation
+    case conjunction   // conjunctions / discourse connectives (e.g. "nevertheless")
+}
+
+public extension VocabularyType {
+    /// Display ordering for the popup: single dictionary headwords first,
+    /// then multi-word units, then connectives. SPEC §9 ranking.
+    var displayRank: Int {
+        switch self {
+        case .word: return 0
+        case .phrase, .phrasalVerb, .idiom, .collocation: return 1
+        case .conjunction: return 2
+        }
+    }
 }
 
 /// A canonical, learnable vocabulary item. SPEC §16.

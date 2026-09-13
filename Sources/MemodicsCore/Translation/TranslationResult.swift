@@ -23,6 +23,15 @@ public struct AnalyzedVocabulary: Equatable, Sendable, Codable {
     }
 }
 
+public extension Array where Element == AnalyzedVocabulary {
+    /// Stable sort by `type.displayRank`; provider order breaks ties.
+    func rankedForDisplay() -> [AnalyzedVocabulary] {
+        enumerated()
+            .sorted { ($0.element.type.displayRank, $0.offset) < ($1.element.type.displayRank, $1.offset) }
+            .map(\.element)
+    }
+}
+
 /// Structured result of a translation/analysis. SPEC §9 — the provider must
 /// return structured data, never an unstructured blob.
 public struct TranslationResult: Equatable, Sendable {
