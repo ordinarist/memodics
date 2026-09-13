@@ -55,4 +55,7 @@ enum Schema {
     CREATE INDEX idx_occurrence_vocabulary ON vocabulary_occurrence(vocabulary_id);
     CREATE INDEX idx_occurrence_lookup ON vocabulary_occurrence(lookup_id);
     """
+
+    /// Version 2 — add per-item CEFR level (nullable; backfilled on next lookup).
+    static let v2 = "ALTER TABLE vocabulary ADD COLUMN cefr TEXT;"
 }
