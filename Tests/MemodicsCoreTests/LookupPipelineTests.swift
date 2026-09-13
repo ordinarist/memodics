@@ -89,4 +89,18 @@ final class LookupPipelineTests: XCTestCase {
         XCTAssertEqual(occ.first?.surfaceForm, "withdrew")
         XCTAssertEqual(occ.first?.context, text)
     }
+
+    func testOutcomeRanksHeadwordsFirstAndStoresCEFR() async throws {
+        let result = TranslationResult(translation: "t", vocabulary: [
+            AnalyzedVocabulary(surfaceForm: "however", lemma: "however", meaning: "m", type: .conjunction, cefr: .b1),
+            AnalyzedVocabulary(surfaceForm: "cats", lemma: "cat", meaning: "m", type: .word, cefr: .a1),
+        ])
+        let (pipeline, _, _, _) = try makeHarness(result: result)
+        let outcome = try await pipeline.lookup(rawText: "However, cats.", sourceApplication: nil)
+
+        // Ranked: word ("cat") before conjunction ("however").
+        XCTAssertEqual(outcome.vocabulary.map(\.item.lemma), ["cat", "however"])
+        // CEFR persisted on the canonical item.
+        XCTAssertEqual(outcome.vocabulary.first?.item.cefr, .a1)
+    }
 }
