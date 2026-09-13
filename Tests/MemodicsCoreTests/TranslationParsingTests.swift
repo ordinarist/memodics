@@ -65,6 +65,19 @@ final class TranslationParsingTests: XCTestCase {
         let result = try TranslationResponseParser.parse(fromText: text)
         XCTAssertEqual(result.translation, "hi")
     }
+
+    func testAnalyzedVocabularyDecodesWithoutCEFRAsNil() throws {
+        let json = #"[{"surfaceForm":"cats","lemma":"cat","meaning":"mèo","type":"word","partOfSpeech":"noun"}]"#
+        let decoded = try JSONDecoder().decode([AnalyzedVocabulary].self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.first?.cefr, nil)
+    }
+    func testAnalyzedVocabularyRoundTripsCEFR() throws {
+        let v = AnalyzedVocabulary(surfaceForm: "cats", lemma: "cat", meaning: "mèo",
+                                   type: .word, partOfSpeech: "noun", cefr: .a1)
+        let data = try JSONEncoder().encode([v])
+        let back = try JSONDecoder().decode([AnalyzedVocabulary].self, from: data)
+        XCTAssertEqual(back.first?.cefr, .a1)
+    }
 }
 
 final class MockTranslationProviderTests: XCTestCase {
