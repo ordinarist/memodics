@@ -55,10 +55,11 @@ public struct VocabularyItem: Equatable, Sendable {
     public var status: VocabularyStatus
     public var firstSeenAt: Date
     public var lastSeenAt: Date
+    public var cefr: CEFRLevel?
 
     public init(id: Int64, lemma: String, type: VocabularyType, meaning: String,
                 translation: String, lookupCount: Int, status: VocabularyStatus,
-                firstSeenAt: Date, lastSeenAt: Date) {
+                firstSeenAt: Date, lastSeenAt: Date, cefr: CEFRLevel? = nil) {
         self.id = id
         self.lemma = lemma
         self.type = type
@@ -68,6 +69,7 @@ public struct VocabularyItem: Equatable, Sendable {
         self.status = status
         self.firstSeenAt = firstSeenAt
         self.lastSeenAt = lastSeenAt
+        self.cefr = cefr
     }
 }
 
