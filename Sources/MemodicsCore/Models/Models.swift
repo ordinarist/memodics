@@ -6,6 +6,21 @@ public enum VocabularyStatus: String, Codable, Sendable {
     case understood
 }
 
+/// Common European Framework of Reference level of a vocabulary item. SPEC §16.
+public enum CEFRLevel: String, Codable, Sendable, CaseIterable, Comparable {
+    case a1, a2, b1, b2, c1, c2
+
+    /// Ordered by CaseIterable ordinal: a1 < a2 < … < c2.
+    public static func < (lhs: CEFRLevel, rhs: CEFRLevel) -> Bool {
+        allCases.firstIndex(of: lhs)! < allCases.firstIndex(of: rhs)!
+    }
+
+    /// Tolerant parse: lowercases/trims input; unknown → nil.
+    public init?(loose raw: String) {
+        self.init(rawValue: raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+    }
+}
+
 /// Category of a vocabulary unit. SPEC §16. Multi-word units (phrasal verbs,
 /// idioms, collocations) are first-class and must not be split into words.
 public enum VocabularyType: String, Codable, Sendable {
