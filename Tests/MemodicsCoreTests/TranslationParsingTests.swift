@@ -95,6 +95,19 @@ final class TranslationParsingTests: XCTestCase {
         let result = try TranslationResponseParser.parse(Data(json.utf8))
         XCTAssertNil(result.vocabulary.first?.cefr)
     }
+
+    func testSystemPromptRequestsQualityRulesAndCEFR() {
+        let prompt = LLMTranslationProvider.makeSystemPrompt(targetLanguage: "Vietnamese", knownLemmas: [])
+        XCTAssertTrue(prompt.contains("conjunction"), "prompt should allow conjunction type")
+        XCTAssertTrue(prompt.contains("cefr"), "prompt should request a cefr field")
+        XCTAssertTrue(prompt.lowercased().contains("proper noun"), "prompt should exclude proper nouns")
+        XCTAssertTrue(prompt.contains("A1"), "prompt should list CEFR bands")
+    }
+
+    func testSystemPromptListsKnownLemmas() {
+        let prompt = LLMTranslationProvider.makeSystemPrompt(targetLanguage: "Vietnamese", knownLemmas: ["cat", "dog"])
+        XCTAssertTrue(prompt.contains("cat, dog"))
+    }
 }
 
 final class MockTranslationProviderTests: XCTestCase {
