@@ -28,11 +28,14 @@ public final class VocabularyService {
                        translation: String, cefr: CEFRLevel? = nil) throws -> VocabularyItem {
         let canonical = Self.canonicalLemma(lemma)
         if let existing = try find(lemma: canonical, type: type) {
-            // Backfill CEFR when it was previously unknown; never clobber with nil.
+            // Backfill CEFR only when no recognized level is stored yet; an
+            // existing level (or a nil incoming level) is left untouched.
             if existing.cefr == nil, let cefr {
                 try db.run("UPDATE vocabulary SET cefr = ? WHERE id = ?",
                            [.text(cefr.rawValue), .int(existing.id)])
-                return try get(id: existing.id) ?? existing
+                var updated = existing
+                updated.cefr = cefr
+                return updated
             }
             return existing
         }
@@ -93,6 +96,8 @@ public final class VocabularyService {
         for row in rows {
             guard let raw = row.level, let level = CEFRLevel(loose: raw) else { continue }
             var entry = result[level] ?? (understood: 0, learning: 0)
+            // VocabularyStatus has exactly two cases; anything not "understood"
+            // (i.e. "learning") counts as still-learning.
             if row.status == VocabularyStatus.understood.rawValue { entry.understood += row.count }
             else { entry.learning += row.count }
             result[level] = entry

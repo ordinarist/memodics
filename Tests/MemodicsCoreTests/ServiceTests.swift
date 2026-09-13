@@ -138,6 +138,16 @@ final class VocabularyServiceTests: XCTestCase {
         XCTAssertEqual(again.cefr, .b1)
     }
 
+    func testUpsertDoesNotClobberExistingCEFRWithDifferentLevel() throws {
+        let db = try Database.inMemory()
+        let vocab = VocabularyService(database: db)
+        _ = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: .b1)
+        // The first recognized level is sticky — a later differing level is ignored.
+        let again = try vocab.upsert(lemma: "issue", type: .word, meaning: "m", translation: "t", cefr: .c1)
+        XCTAssertEqual(again.cefr, .b1)
+        XCTAssertEqual(try vocab.get(id: again.id)?.cefr, .b1)
+    }
+
     func testCountsByCEFRGroupsUnderstoodAndLearning() throws {
         let db = try Database.inMemory()
         let vocab = VocabularyService(database: db)
