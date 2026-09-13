@@ -25,6 +25,8 @@ final class DashboardViewModel: ObservableObject {
     @Published var total = 0
     @Published var selectedID: Int64?
     @Published var occurrences: [VocabularyOccurrence] = []
+    @Published var levelEstimate: EnglishLevelEstimate?
+    @Published var cefrCounts: [CEFRLevel: (understood: Int, learning: Int)] = [:]
 
     private let pageSize = 50
     private let environment: AppEnvironment
@@ -43,6 +45,10 @@ final class DashboardViewModel: ObservableObject {
             selectedID = items.first?.id
         }
         loadOccurrences()
+        let counts = (try? environment.vocabulary.vocabularyCountsByCEFR()) ?? [:]
+        cefrCounts = counts
+        let understood = counts.mapValues(\.understood)
+        levelEstimate = EnglishLevelEstimator.estimate(understoodByLevel: understood)
     }
 
     /// Append the next page (pagination for large vocabularies, SPEC §19).
@@ -97,6 +103,7 @@ struct DashboardView: View {
 
     private var sidebar: some View {
         VStack(spacing: 0) {
+            levelCard
             Picker("", selection: $model.statusFilter) {
                 ForEach(DashboardViewModel.StatusFilter.allCases) { f in
                     Text(f.title).tag(f)
@@ -127,6 +134,50 @@ struct DashboardView: View {
         .searchable(text: $model.query, placement: .sidebar, prompt: "Search word or meaning")
         .onChange(of: model.query) { _, _ in model.reload() }
         .navigationTitle("Vocabulary")
+    }
+
+    @ViewBuilder
+    private var levelCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Your English level").font(.headline)
+            if let est = model.levelEstimate, let level = est.level {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(level.rawValue.uppercased()).font(.system(size: 34, weight: .bold))
+                    Text("confidence: \(est.confidence.rawValue)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            } else {
+                Text("Keep looking up words to estimate your level.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+            cefrChart
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
+        .padding(12)
+    }
+
+    @ViewBuilder
+    private var cefrChart: some View {
+        let maxCount = max(1, model.cefrCounts.values.map { $0.understood + $0.learning }.max() ?? 1)
+        HStack(alignment: .bottom, spacing: 10) {
+            ForEach(CEFRLevel.allCases, id: \.self) { band in
+                let c = model.cefrCounts[band] ?? (understood: 0, learning: 0)
+                VStack(spacing: 2) {
+                    ZStack(alignment: .bottom) {
+                        Capsule().fill(Color.secondary.opacity(0.15))
+                            .frame(width: 18, height: 60)
+                        VStack(spacing: 0) {
+                            Capsule().fill(Color.orange.opacity(0.7))
+                                .frame(width: 18, height: 60 * CGFloat(c.learning) / CGFloat(maxCount))
+                            Capsule().fill(Color.green.opacity(0.8))
+                                .frame(width: 18, height: 60 * CGFloat(c.understood) / CGFloat(maxCount))
+                        }
+                    }
+                    Text(band.rawValue.uppercased()).font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     @ViewBuilder
