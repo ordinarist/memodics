@@ -18,6 +18,7 @@ public enum TranslationResponseParser {
         let meaning: String?
         let type: String?
         let partOfSpeech: String?
+        let cefr: String?
     }
 
     /// Parse a raw JSON object.
@@ -34,9 +35,10 @@ public enum TranslationResponseParser {
             let lemma = item.lemma ?? item.surfaceForm
             guard let surface, let lemma else { return nil }
             let type = item.type.flatMap(VocabularyType.init(rawValue:)) ?? .word
+            let cefr = item.cefr.flatMap(CEFRLevel.init(loose:))
             return AnalyzedVocabulary(surfaceForm: surface, lemma: lemma,
                                       meaning: item.meaning ?? "", type: type,
-                                      partOfSpeech: item.partOfSpeech)
+                                      partOfSpeech: item.partOfSpeech, cefr: cefr)
         }
         return TranslationResult(translation: dto.translation, vocabulary: vocab)
     }

@@ -78,6 +78,23 @@ final class TranslationParsingTests: XCTestCase {
         let back = try JSONDecoder().decode([AnalyzedVocabulary].self, from: data)
         XCTAssertEqual(back.first?.cefr, .a1)
     }
+
+    func testParsesCEFRAndConjunctionType() throws {
+        let json = """
+        {"translation":"x","vocabulary":[
+          {"surfaceForm":"nevertheless","lemma":"nevertheless","meaning":"tuy nhiên","type":"conjunction","cefr":"B2"}
+        ]}
+        """
+        let result = try TranslationResponseParser.parse(Data(json.utf8))
+        XCTAssertEqual(result.vocabulary.first?.type, .conjunction)
+        XCTAssertEqual(result.vocabulary.first?.cefr, .b2)
+    }
+
+    func testParsesMissingCEFRAsNil() throws {
+        let json = #"{"translation":"x","vocabulary":[{"surfaceForm":"cat","lemma":"cat","meaning":"mèo","type":"word"}]}"#
+        let result = try TranslationResponseParser.parse(Data(json.utf8))
+        XCTAssertNil(result.vocabulary.first?.cefr)
+    }
 }
 
 final class MockTranslationProviderTests: XCTestCase {
