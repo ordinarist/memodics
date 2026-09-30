@@ -36,11 +36,14 @@ final class DashboardViewModel: ObservableObject {
     var selectedItem: VocabularyItem? { items.first { $0.id == selectedID } }
     var canLoadMore: Bool { items.count < total }
 
-    /// Reload from the first page using the current query/filter.
-    func reload() {
+    /// Reload from the first page using the current query/filter. With
+    /// `keepingLoaded`, re-fetch as many rows as are currently loaded so the
+    /// list doesn't collapse back to page 1 after an in-place change.
+    func reload(keepingLoaded: Bool = false) {
         let status = statusFilter.status
+        let limit = keepingLoaded ? max(pageSize, items.count) : pageSize
         total = (try? environment.vocabulary.count(matching: query, status: status)) ?? 0
-        items = (try? environment.vocabulary.search(query, status: status, limit: pageSize, offset: 0)) ?? []
+        items = (try? environment.vocabulary.search(query, status: status, limit: limit, offset: 0)) ?? []
         if selectedID == nil || !items.contains(where: { $0.id == selectedID }) {
             selectedID = items.first?.id
         }
@@ -71,12 +74,24 @@ final class DashboardViewModel: ObservableObject {
 
     func markUnderstood(_ id: Int64) {
         try? environment.vocabulary.markUnderstood(id: id)
-        reload()
+        reloadKeepingPosition(after: id)
     }
 
     func markLearning(_ id: Int64) {
         try? environment.vocabulary.markLearning(id: id)
-        reload()
+        reloadKeepingPosition(after: id)
+    }
+
+    /// Refresh after a status change without resetting pagination. If the item
+    /// dropped out of the filtered list, select its neighbour instead of the first row.
+    private func reloadKeepingPosition(after id: Int64) {
+        let oldIndex = items.firstIndex { $0.id == id }
+        let wasSelected = selectedID == id
+        reload(keepingLoaded: true)
+        if wasSelected, !items.contains(where: { $0.id == id }), let i = oldIndex, !items.isEmpty {
+            selectedID = items[min(i, items.count - 1)].id
+            loadOccurrences()
+        }
     }
 }
 
