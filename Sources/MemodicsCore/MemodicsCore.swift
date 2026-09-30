@@ -11,5 +11,5 @@ import Foundation
 /// isolated from the testable core (SPEC §26).
 public enum Memodics {
     /// Semantic version of the core library.
-    public static let version = "0.2.0"
+    public static let version = "0.2.1"
 }
